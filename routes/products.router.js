@@ -1,41 +1,86 @@
 const express = require('express');
-const faker = require('faker');
+const ProductService = require('../services/product.service');
+const validatorHandler = require('../middlewares/validator.handler');
+const {
+  createProductSchema,
+  updateProductSchema,
+  getProductSchema,
+} = require('../schemas/product.schema');
+const { getClientSchema } = require('../schemas/client.schema');
 
 const router = express.Router();
+const service = new ProductService();
 
-router.get('/', (req, res) => {
-  const products = [];
-  const { size } = req.query;
-  const limit = size || 10;
-
-  for(let i=0; i < limit; i++) {
-    products.push({
-      name: faker.commerce.productName(),
-      price: parseInt(faker.commerce.price(), 10),
-      image: faker.image.imageUrl(),
-    })
+router.get('/', async (req, res, next) => {
+  try {
+    const products = await service.find();
+    res.json(products);
+  } catch (error) {
+    next(error);
   }
-
-  res.json(products);
 });
 
-router.get('/:id', (req, res) => {
-  const { id } = req.params;
-
-  res.json({
-    id,
-    name: 'iPhone 13',
-    price: 1000
-  })
+router.get('/:id',
+  validatorHandler(getProductSchema, 'params'),
+  async (req, res, next) => {
+    try {
+      const { id } = req.params;
+      const product = await service.findOne(id);
+      res.json(product);
+    } catch (error) {
+      // Aqui captura el error y se lo envia al middleware
+      next(error);
+    }
 });
 
-router.post('/', (req, res) => {
-  const body = req.body;
+router.post('/', 
+  validatorHandler(createProductSchema, 'body'),
+  async (req, res, next) => {
+    try {
+      const body = req.body;
+      const newProduct = await service.create(body);
 
-  res.json({
-    message: 'created',
-    data: body
-  })
+      res.status(201).json({
+        msg: 'product created successfully',
+        data: newProduct,
+      });
+    } catch (error) {
+      next(error);
+    }  
+});
+
+router.patch('/:id', 
+  validatorHandler(getProductSchema, 'params'),
+  validatorHandler(updateProductSchema, 'body'),
+  async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const body = req.body;
+    const product = await service.update(id, body);
+
+    res.json({
+      message: 'product updated successfully',
+      data: product,
+    });
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.delete('/:id', 
+  validatorHandler(getClientSchema, 'params'),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const product = await service.delete(id);
+
+      res.json({
+        message: 'product delete successfully',
+        id,
+      });
+    } catch (error) {
+      next(error);
+    }
 });
 
 module.exports = router;
